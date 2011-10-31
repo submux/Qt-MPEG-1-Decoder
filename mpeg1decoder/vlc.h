@@ -82,8 +82,8 @@ namespace Mpeg1
 		static const short s_macroblockTypeP[];
 		static const short s_macroblockTypeB[];
 
-		static const short s_motionVector[];
-		static const short s_motionVector1[];
+		static const int s_motionVector[];
+		static const int s_motionVector1[];
 
 		static const short s_codedBlockPattern[];
 

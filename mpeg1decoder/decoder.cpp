@@ -115,7 +115,7 @@ namespace Mpeg1
 
 		} while (m_input->nextBits(32) == GroupStartCode);
 
-		int sequenceEndCode = m_input->getBits(32);
+		m_input->skipBits(32); // sequenceEndCode
 	}
 
 	/// All fields in each sequence header with the exception of
@@ -123,7 +123,7 @@ namespace Mpeg1
 	/// in the first sequence header.
 	void Decoder::parseSequenceHeader() 
 	{
-		int sequenceHeaderCode = m_input->getBits(32);
+		m_input->skipBits(32);		// sequenceHeaderCode
 
 		m_width = m_input->getBits(12);
 		m_height = m_input->getBits(12);
@@ -132,16 +132,21 @@ namespace Mpeg1
 		m_macroblockHeight = (m_height + 15) >> 4;
 
 		int pelAspectRatio = m_input->getBits(4);
+		m_renderer->setPixelAspectRatio(pelAspectRatio);
+
 		int pictureRate = m_input->getBits(4);
+		m_renderer->setPictureRate(pictureRate);
 
 		int bitRate = m_input->getBits(18);
-		int markerBit = m_input->getBits(1);	// Should be == 0x1
+		m_renderer->setBitRate(bitRate);
 
-		int vbvBufferSize = m_input->getBits(10);
+		m_input->skipBits(1);	// Marker bit - Should be '1'
 
-	//        int minimumBufferSize = vbvBufferSize << 14;
+	    m_vbvBufferSize = m_input->getBits(10);
 
-		int constrainedParameterFlag = m_input->getBits(1);
+		// int minimumBufferSize = vbvBufferSize << 14;
+
+		m_input->skipBits(1); // constrainedParameterFlag
 
 		bool loadIntraQuantizerMatrixFlag = (m_input->getBits(1) == 1);
 		if (loadIntraQuantizerMatrixFlag)
@@ -163,7 +168,7 @@ namespace Mpeg1
 
 			while (m_input->nextBits(24) != StartCode) 
 			{
-				int sequenceExtensionData = m_input->getBits(8);
+				m_input->skipBits(8); // sequenceExtensionData
 			}
 
 			nextStartCode();
@@ -175,7 +180,7 @@ namespace Mpeg1
 
 			while (m_input->nextBits(24) != StartCode) 
 			{
-				int userData = m_input->getBits(8);
+				m_input->skipBits(8); // userData
 			}
 
 			nextStartCode();
@@ -227,10 +232,10 @@ namespace Mpeg1
 	/// is either an I-Picture or a P-Picture.
 	void Decoder::parseGroupOfPictures()
 	{
-		int groupStartCode = m_input->getBits(32);
-		int timeCode = m_input->getBits(25);
-		bool closedGop = m_input->getBits(1) == 1;
-		bool brokenLink = m_input->getBits(1) == 1;
+		m_input->skipBits(32);	// groupStartCode
+		m_input->skipBits(25);	// timeCode
+		bool closedGop = m_input->getBool();
+		m_input->getBool(); // brokenLink
 
 		nextStartCode();
 
@@ -240,7 +245,7 @@ namespace Mpeg1
 
 			while (m_input->nextBits(24) != StartCode) 
 			{
-				int groupExtensionData = m_input->getBits(8);
+				m_input->getBits(8);	// groupExtensionData
 			}
 
 			nextStartCode();
@@ -252,7 +257,7 @@ namespace Mpeg1
 
 			while (m_input->nextBits(24) != StartCode) 
 			{
-				int userData = m_input->getBits(8);
+				m_input->getBits(8); // userData
 			}
 
 			nextStartCode();
@@ -296,10 +301,10 @@ namespace Mpeg1
 
 	void Decoder::parsePicture()
 	{
-		int pictureStartCode = m_input->getBits(32);
+		m_input->getBits(32); // pictureStartCode
 		int temporalReference = m_input->getBits(10);
 		m_pictureCodingType = m_input->getBits(3);
-		int vbvDelay = m_input->getBits(16);
+		m_input->getBits(16); // vbvDelay
 
 		// This data is to be used later by the player
 		m_pictureStore[m_current]->setTime(temporalReference);
@@ -333,11 +338,11 @@ namespace Mpeg1
 			m_backward->initialize(m_backwardF, fullPelBackwardVector);
 		}
 
-		int extraBitPicture = 0;
-		while (m_input->nextBits(1) == 0x1) 
+		bool extraBitPicture = 0;
+		while (m_input->nextBool()) 
 		{
-			extraBitPicture = m_input->getBits(1);
-			int extraInformationPicture = m_input->getBits(8);
+			extraBitPicture = m_input->getBool();
+			m_input->skipBits(8); // extraInformationPicture
 		}
 		extraBitPicture = m_input->getBits(1);
 
@@ -345,11 +350,11 @@ namespace Mpeg1
 
 		if (m_input->nextBits(32) == ExtensionStartCode) 
 		{
-			m_input->getBits(32);
+			m_input->skipBits(32);
 
 			while (m_input->nextBits(24) != StartCode) 
 			{
-				int pictureExtensionData = m_input->getBits(8);
+				m_input->skipBits(8); // pictureExtensionData
 			}
 
 			nextStartCode();
@@ -357,11 +362,11 @@ namespace Mpeg1
 
 		if (m_input->nextBits(32) == UserDataStartCode) 
 		{
-			m_input->getBits(32);
+			m_input->skipBits(32);
 
 			while (m_input->nextBits(24) != StartCode) 
 			{
-				int userData = m_input->getBits(8);
+				m_input->getBits(8); // userData
 			}
 
 			nextStartCode();
@@ -399,11 +404,11 @@ namespace Mpeg1
 
 		m_quantizerScale = m_input->getBits(5);
 
-		int extraBitSlice = 0;
-		while (m_input->nextBits(1) == 0x1) 
+		bool extraBitSlice = 0;
+		while (m_input->nextBool()) 
 		{
-			extraBitSlice = m_input->getBits(1);
-			int extraInformationSlice = m_input->getBits(8);
+			extraBitSlice = m_input->getBool();
+			m_input->getBits(8);	// extraInformationSlice
 		}
 		extraBitSlice = m_input->getBits(1);
 
@@ -427,14 +432,14 @@ namespace Mpeg1
 		// Discarded by decoder
 		while (m_input->nextBits(11) == 0xf) 
 		{
-			int macroblockStuffing = m_input->getBits(11);
+			m_input->skipBits(11);	// macroblockStuffing
 		}
 
 		int macroblockAddressIncrement = 0;
 
 		while (m_input->nextBits(11) == 0x8) 
 		{
-			int macroblockEscape = m_input->getBits(11);
+			m_input->skipBits(11);	// macroblockEscape
 			macroblockAddressIncrement += 33;
 		}
 
@@ -487,12 +492,10 @@ namespace Mpeg1
 		m_macroblockRow = m_macroblockAddress / m_macroblockWidth;
 		m_macroblockColumn = m_macroblockAddress % m_macroblockWidth;
 
-		/*
-			* For macroblocks in I pictures, and for intra coded macroblocks in 
-			* P and B pictures, the coded block pattern is not transmitted, but 
-			* is assumed to have a value of 63, i.e. all the blocks in the 
-			* macroblock are coded.
-			*/
+		// For macroblocks in I pictures, and for intra coded macroblocks in 
+		// P and B pictures, the coded block pattern is not transmitted, but 
+		// is assumed to have a value of 63, i.e. all the blocks in the 
+		// macroblock are coded.
 		int codedBlockPattern = 0x3f;
 
 		Vlc::getMacroblockType(m_pictureCodingType, m_input, m_macroblockType);
@@ -673,7 +676,7 @@ namespace Mpeg1
 				m_dctZigzag[run] = runLevel.level();
 			}
 
-			int endOfBlock = m_input->getBits(2); // Should be == 0x2 (EOB)
+			m_input->skipBits(2); // endOfBlock, Should be == 0x2 (EOB)
 
 			if (m_macroblockType.macroblockIntra()) 
 			{

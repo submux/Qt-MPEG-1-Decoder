@@ -74,9 +74,8 @@ namespace Mpeg1
 		m_bufferIndex &= 0x7;
 	}
 
-	/*
-	* Peek "count" bits without removing them from the buffer
-	*/
+	
+	/// Peek "count" bits without removing them from the buffer
 	int InputBitstream::nextBits(int count)
 	{
 		int value = 0;
@@ -118,6 +117,11 @@ namespace Mpeg1
 		return value;
 	}
 
+	bool InputBitstream::nextBool()
+	{
+		return nextBits(1) == 1;
+	}
+
 	int InputBitstream::nextSignedBits(int count)
 	{
 		int value = nextBits(count);
@@ -133,6 +137,18 @@ namespace Mpeg1
 		int value = nextBits(count);
 		m_bufferIndex += count;
 		return value;
+	}
+
+	void InputBitstream::skipBits(int count)
+	{
+		// TODO : update this so that it doesn't actually create the return value, just updates
+		//          the buffer and skips.
+		getBits(count);
+	}
+
+	bool InputBitstream::getBool()
+	{
+		return getBits(1) == 1;
 	}
 
 	int InputBitstream::getSignedBits(int count)

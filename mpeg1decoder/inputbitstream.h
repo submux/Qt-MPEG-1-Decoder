@@ -17,9 +17,15 @@ namespace Mpeg1
 
 		int nextBits(int count);
 
+		bool nextBool();
+
 		int nextSignedBits(int count);
 
 		int getBits(int count);
+
+		void skipBits(int count);
+
+		bool getBool();
 
 		int getSignedBits(int count);
 

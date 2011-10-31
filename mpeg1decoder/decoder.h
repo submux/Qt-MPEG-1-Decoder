@@ -97,6 +97,8 @@ namespace Mpeg1
 		int m_previous;
 		int m_future;
 
+		int m_vbvBufferSize;			// Sequence Header : Provided for informative reasons
+
 		class MotionVector *m_forward;
 		class MotionVector *m_backward;
 
