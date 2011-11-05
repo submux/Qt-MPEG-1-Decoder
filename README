@@ -1,1 +1,48 @@
-For now, read the readme.txt under the mpeg1decoder directory
+A research MPEG-1 decoder written using Qt as the platform framework for portability
+by Darren R. Starr submux at gmail
+
+This project contains an MPEG-1 decoder which was originally ported from the research 
+project published at :
+	http://www.developer.nokia.com/Community/Wiki/MPEG_decoder_in_Java_ME
+
+The decoder presented by Nokia was originally written in Java, but I have ported to C++
+as a step towards making a parallel decoder while writing an article on WebCL. I am
+using C++ in order to make use of encapsulation that will assist in identifying and
+classifying the scopes of the variables as they would be used in an OpenCL implementation.
+
+I know that I still am experiencing several bugs in the decoder since when I compare my
+output to the output of other decoders, there are blocking artifacts. I have chosen to
+ignore them at this time as much of the code responsible for this will be rewritten to
+support floating point instead of fixed point as there is no benefit and possible 
+disadvantages to using integer mathematics on the graphics card. OpenGL sees colors as
+floating point values and therefore using fixed point adds an unnecessary conversion
+step as well.
+
+TODO short-term :
+ - Convert the image format to floating point
+ - Implement floating point DCT
+ - Redesign parser to be push based
+ - Isolate slice decoding from picture decoding
+ - Isolate block parsing from block processing
+ - Isolate all variable scopes from any point higher than where they're used
+ - Break motion vectors into a finer granularity of operations (separate functions 
+    for vertical half pel vs. horizontal half pel for example).
+ - Replace InputBitstream with a smaller buffer based model.
+ - Move start code based parsing into the application
+ 
+TODO long-term :
+ - Replace each function (all of them) with an OpenCL kernel
+ - Use QOpenCL to make a test app for pushing OpenCL data to the kernels
+ - Queue each sequence decoder, Sequence header + GOP headers
+ - Queue each each picture decoder dependent on GOP header decoding
+ - Queue each slice decoder dependent on picture header decoding
+ - For each macroblock parsed, queue a block processor which performs 
+     motion-compensation, DCT and correction.
+ - For each DCT operation, implement in parallel using parallel vector operations
+     in OpenCL-C (float4 for example).
+ - Upon completion of block decoding signal the slice decoder.
+ - Upon all blocks decoded, slice decoder should signal picture decoder
+ - Upon all slices decoded, picture decoder should signal OpenGL output queue
+ - Implement an OpenGL context for display. OpenCL would be ideal for color conversion,
+    alternatively, I have used fragment shaders for this in the past in GLSL, they're
+	fine so long as there's no need for interlace support.

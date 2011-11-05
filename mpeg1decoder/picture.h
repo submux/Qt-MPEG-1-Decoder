@@ -1,8 +1,30 @@
 #if !defined(MPEG1_PICTURE_H)
 #define MPEG1_PICTURE_H
 
+class QPoint;
+
+#include <QtCore/QPoint>
+#include <QtCore/QList>
+
 namespace Mpeg1
 {
+	class PictureMv
+	{
+	public:
+		PictureMv(const QPoint &from, const QPoint &to, bool halfRight, bool halfDown) :
+			m_from(from),
+			m_to(to),
+			m_halfRight(halfRight),
+			m_halfDown(halfDown)
+			{
+			}
+
+		QPoint m_from;
+		QPoint m_to;
+		bool m_halfRight;
+		bool m_halfDown;
+	};
+
 	/// A picture consists of three rectangular matrices of eight-bit numbers;
 	/// a luminance matrix (Y), and two chrominance matrices (Cr and Cb)
 	/// The Y-matrix must have an even number of rows and columns, and the Cr 
@@ -29,12 +51,22 @@ namespace Mpeg1
 
 		void interpolate(Picture *source1, Picture *source2, int macroblockRow, int macroblockColumn, class MotionVector *motionVector1, class MotionVector *motionVector2);
 
-		static void compensate(Picture *source, int sourceRow, int sourceColumn, Picture *destination, int destinationRow, int destinationColumn, class MotionVector *motionVector);
+		static void compensate(const Picture *source, int sourceRow, int sourceColumn, Picture *destination, int destinationRow, int destinationColumn, class MotionVector *motionVector);
 
 		/// Perform a block copy on the specified macroblock
 		/// This is equivalent to a compensation with motion
 		/// vector components equal zero.
-		void copy(Picture *source, int macroblockRow, int macroblockColumn);
+		void copyMacroblock(const Picture *source, int macroblockRow, int macroblockColumn);
+
+		void fullPelCopyMacroblock(const Picture *source, const QPoint &offset);
+
+		void fullPelCopyLumaMacroblock(const Picture *source, const QPoint &from, const QPoint &to);
+
+		void fullPelCopyChromaMacroblock(const Picture *source, const QPoint &from, const QPoint &to);
+
+		void copyLumaMacroblock(const Picture *source, const QPoint &from, bool halfRight, bool halfDown, const QPoint &to);
+
+		void copyChromaMacroblock(const Picture *source, const QPoint &from, bool halfRight, bool halfDown, const QPoint &to);
 
 		int time() const;
 
@@ -52,6 +84,22 @@ namespace Mpeg1
 
 		void correctChromaBlock(int *dct, int macroblockRow, int macroblockColumn, int blockNumber);
 
+		const short *lumaScanline(int scanLine) const;
+
+		short *lumaScanline(int scanLine);
+
+		const short *chromaBlueScanline(int scanLine) const;
+
+		short *chromaBlueScanline(int scanLine);
+
+		const short *chromaRedScanline(int scanLine) const;
+
+		short *chromaRedScanline(int scanLine);
+
+		void clearMotionVectors() { qDeleteAll(m_motionVectors); m_motionVectors.clear(); }
+
+		const QList<PictureMv *>motionVectors() const { return m_motionVectors; }
+
 	private:
 		void doInterpolation(Picture *source1, Picture *source2, int macroblockRow, int macroblockColumn);
 
@@ -64,7 +112,9 @@ namespace Mpeg1
 		short *m_chromaRed;
 
 		int m_time;
-		int m_type;
+		int m_type;		
+
+		QList<PictureMv *>m_motionVectors;
 	};
 }
 

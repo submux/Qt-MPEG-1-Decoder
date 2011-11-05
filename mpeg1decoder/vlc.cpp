@@ -2,6 +2,8 @@
 #include "inputbitstream.h"
 #include "picture.h"
 
+#include <QtCore/QDebug>
+
 namespace Mpeg1
 {
 	const short Vlc::s_macroblockAddressIncrement[] =	
@@ -333,7 +335,7 @@ namespace Mpeg1
 	//
 	// Total number of entries 16 * 32 = 512
 	// First 32 entries are not used in fact
-	const quint8 Vlc::s_dctCoefficients[][3] =
+	const qint8 Vlc::s_dctCoefficients[][3] =
 	{
 		// 0000 0000 0000 xxxx x
 		{0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
@@ -497,7 +499,7 @@ namespace Mpeg1
 	};
 
 	// 0000 0001 xxxx s??? ?
-	const quint8 Vlc::s_dctCoefficients1[][3] =
+	const qint8 Vlc::s_dctCoefficients1[][3] =
 	{
 		{0, 11, 13}, {0, -11, 13}, {8,  2, 13}, {8,  -2, 13},
 		{4,  3, 13}, {4,  -3, 13}, {0, 10, 13}, {0, -10, 13},
@@ -510,21 +512,21 @@ namespace Mpeg1
 	};
 
 	// 0000 0010 xxs? ???? ?
-	const quint8 Vlc::s_dctCoefficients2[][3] =
+	const qint8 Vlc::s_dctCoefficients2[][3] =
 	{
 		{16, 1, 11}, {16, -1, 11}, {5, 2, 11}, {5, -2, 11},
 		{ 0, 7, 11}, { 0, -7, 11}, {2, 3, 11}, {2, -3, 11}
 	};
 
 	// 0000 0011 xxs? ???? ?
-	const quint8 Vlc::s_dctCoefficients3[][3] =
+	const qint8 Vlc::s_dctCoefficients3[][3] =
 	{
 		{1 , 4, 11}, {1 , -4, 11}, {15, 1, 11}, {15, -1, 11},
 		{14, 1, 11}, {14, -1, 11}, {4 , 2, 11}, {4 , -2, 11}
 	};
 
 	// 0000 xxxs ???? ???? ?
-	const quint8 Vlc::s_dctCoefficients4[][3] =
+	const qint8 Vlc::s_dctCoefficients4[][3] =
 	{
 		{0, 0, 0}, {0,  0, 0}, {0, 0, 0}, {0,  0, 0},
 		{0, 0, 6}, {0,  0, 6}, {0, 0, 6}, {0,  0, 6},     // ESCAPE
@@ -603,7 +605,7 @@ namespace Mpeg1
 
 			if(index == 0x1) 
 			{
-				static const quint8 dctCoefficients[][3] =
+				static const qint8 dctCoefficients[][3] =
 				{
 					{7, 1, 7}, {7, -1, 7}, {6, 1, 7}, {6, -1, 7},
 					{1, 2, 7}, {1, -2, 7}, {5, 1, 7}, {5, -1, 7}
@@ -618,7 +620,7 @@ namespace Mpeg1
 			}
 			else if (index == 0x2) 
 			{
-				static const quint8 dctCoefficients[][3] =
+				static const qint8 dctCoefficients[][3] =
 				{
 					{13,  1, 9}, {13, -1, 9}, {0, 6, 9}, {0, -6, 9}, {12, 1, 9}, {12, -1, 9}, {11, 1, 9}, {11, -1, 9},
 					{ 3,  2, 9}, { 3, -2, 9}, {1, 3, 9}, {1, -3, 9}, { 0, 5, 9}, { 0, -5, 9}, {10, 1, 9}, {10, -1, 9},
@@ -635,7 +637,7 @@ namespace Mpeg1
 			}
 			else if (index == 0x3) 
 			{
-				static const quint8 dctCoefficients[][3] =
+				static const qint8 dctCoefficients[][3] =
 				{
 					{4, 1, 6}, {4, -1, 6}, {3, 1, 6}, {3, -1, 6}
 				};

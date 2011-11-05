@@ -1,7 +1,6 @@
 #if !defined(MPEG1_PICTUREQUEUE_H)
 #define MPEG1_PICTUREQUEUE_H
 
-#include <QtCore/QDebug>
 #include <QtCore/QList>
 #include <QtCore/QMutex>
 #include <QtCore/QWaitCondition>
@@ -16,7 +15,10 @@ namespace Mpeg1
 		void put(Picture *picture) 
 		{
 			m_queueMutex.lock();
-			m_queue.append(picture);
+      while(m_queue.count() > 2)
+        m_spaceForMore.wait(&m_queueMutex);
+
+      m_queue.append(picture);
 			m_queueMutex.unlock();
 
 			m_waitCondition.wakeOne();
@@ -32,6 +34,8 @@ namespace Mpeg1
 			Picture *picture = m_queue.takeFirst();
 			m_queueMutex.unlock();
 
+      m_spaceForMore.wakeOne();
+
 			return picture;
 		}
 
@@ -39,6 +43,7 @@ namespace Mpeg1
 		QList<Picture *> m_queue;
 		QMutex m_queueMutex;
 		QWaitCondition m_waitCondition;
+    QWaitCondition m_spaceForMore;
 	};
 }
 

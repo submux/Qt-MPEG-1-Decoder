@@ -50,6 +50,17 @@ namespace Mpeg1
 		35, 36, 48, 49, 57, 58, 62, 63
 	};
 
+	int Decoder::s_nullMatrix[] =
+	{
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0
+	};
 
 	Decoder::Decoder(PictureQueue *queue, InputBitstream *input, VideoRenderer *renderer) :
 		m_queue(queue),
@@ -271,11 +282,12 @@ namespace Mpeg1
 
 		do 
 		{
-    		parsePicture();
+			parsePicture();
 
     		// Send picture to player
-			m_queue->put(m_pictureStore[m_current]);
-
+			m_renderer->pushPicture(m_pictureStore[m_current], m_pictureCodingType);
+			m_pictureStore[m_current]->clearMotionVectors();
+			
 			// Store current picture in Previous or Future Picture Store
     		// Refer to section 2-D.2.4
 			if (m_pictureCodingType == Picture::IType || m_pictureCodingType == Picture::PType) 
@@ -463,7 +475,7 @@ namespace Mpeg1
 					int macroblockRow = (m_macroblockAddress + 1 + i) / m_macroblockWidth;
 					int macroblockColumn = (m_macroblockAddress + 1 + i) % m_macroblockWidth;
 
-					m_pictureStore[m_current]->copy(m_pictureStore[m_previous], macroblockRow, macroblockColumn);
+					m_pictureStore[m_current]->copyMacroblock(m_pictureStore[m_previous], macroblockRow, macroblockColumn);
 				}
 			}
 			else if (m_pictureCodingType == Picture::BType) 
@@ -550,7 +562,7 @@ namespace Mpeg1
 				m_pictureStore[m_current]->compensate(m_pictureStore[m_previous], m_macroblockRow, m_macroblockColumn, m_forward);
 			}
 			else {
-				m_pictureStore[m_current]->copy(m_pictureStore[m_previous], m_macroblockRow, m_macroblockColumn);
+				m_pictureStore[m_current]->copyMacroblock(m_pictureStore[m_previous], m_macroblockRow, m_macroblockColumn);
 			}
 		}
 		else if (m_pictureCodingType == Picture::BType) // See 2.4.4.3
@@ -618,8 +630,8 @@ namespace Mpeg1
 	{
 		Vlc::RunLevel runLevel;
 
-		copyInts(m_nullMatrix, 0, m_dctRecon, 0, 64);
-		copyInts(m_nullMatrix, 0, m_dctZigzag, 0, 64);
+		copyInts(s_nullMatrix, 0, m_dctRecon, 0, 64);
+		copyInts(s_nullMatrix, 0, m_dctZigzag, 0, 64);
 
 		int run = 0;
 
@@ -691,7 +703,8 @@ namespace Mpeg1
 
 				m_pastIntraAddress = m_macroblockAddress;
 			}
-			else {
+			else
+			{
 				// See ISO/IEC 11172 2.4.4.2 / 2.4.4.3
 				for (int i = 0; i < 64; ++i) 
 				{
@@ -720,7 +733,7 @@ namespace Mpeg1
 	/// Helper function
 	int Decoder::sign(int n) 
 	{
-		return n > 0 ? 1 : (n < 0? -1 : 0);
+		return n > 0 ? 1 : (n < 0 ? -1 : 0);
 	}
 
 	/// Reconstruct DCT coefficients, as defined in ISO/IEC 11172 2.4.4.1

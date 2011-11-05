@@ -95,11 +95,11 @@ namespace Mpeg1
 		static const short s_dctDcSizeChrominance[];
 		static const short s_dctDcSizeChrominance1[];
 
-		static const quint8 Vlc::s_dctCoefficients[][3];
-		static const quint8 Vlc::s_dctCoefficients1[][3];
-		static const quint8 Vlc::s_dctCoefficients2[][3];
-		static const quint8 Vlc::s_dctCoefficients3[][3];
-		static const quint8 Vlc::s_dctCoefficients4[][3];
+		static const qint8 Vlc::s_dctCoefficients[][3];
+		static const qint8 Vlc::s_dctCoefficients1[][3];
+		static const qint8 Vlc::s_dctCoefficients2[][3];
+		static const qint8 Vlc::s_dctCoefficients3[][3];
+		static const qint8 Vlc::s_dctCoefficients4[][3];
 	};
 }
 

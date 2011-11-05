@@ -13,4 +13,9 @@ static inline void copyInts(const int *source, int sourceIndex, int *destination
 		destination[destinationIndex++] = source[sourceIndex++];
 }
 
+static inline int clip255(int v)
+{
+  return (v > 255) ? 255 : ((v < 0) ? 0 : v);
+}
+
 #endif

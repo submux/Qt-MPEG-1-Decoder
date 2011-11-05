@@ -1,6 +1,8 @@
 #if !defined(MPEG1_MOTIONVECTOR_H)
 #define MPEG1_MOTIONVECTOR_H
 
+#include <QtCore/Qt>
+
 namespace Mpeg1
 {
 	class MotionVector

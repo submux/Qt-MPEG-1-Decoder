@@ -146,7 +146,7 @@ namespace Mpeg1
 
 		Vlc::MacroblockType m_macroblockType;
 
-		int m_nullMatrix[64];
+		static int s_nullMatrix[64];
 		int m_dctRecon[64];
 		int m_dctZigzag[64];
 	};

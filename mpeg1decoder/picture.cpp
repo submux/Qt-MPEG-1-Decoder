@@ -2,6 +2,9 @@
 #include "motionvector.h"
 #include "utility.h"
 
+#include <memory.h>
+#include <QtCore/QPoint>
+
 namespace Mpeg1
 {
 	// If the decoder reconstructs a picture from the past and a 
@@ -23,10 +26,13 @@ namespace Mpeg1
 		m_luma = new short[size];
 		m_chromaBlue = new short[size >> 2];
 		m_chromaRed = new short[size >> 2];
+
+		memset(m_luma, 0, size * 2);
 	}
 
 	Picture::~Picture()
 	{
+		clearMotionVectors();
 		delete [] m_luma;
 		delete [] m_chromaRed;
 		delete [] m_chromaBlue;
@@ -45,174 +51,232 @@ namespace Mpeg1
 		doInterpolation(&s_temp1, &s_temp2, macroblockRow, macroblockColumn);
 	}
 
-	void Picture::compensate(Picture *source, int sourceRow, int sourceColumn, Picture *destination, int destinationRow, int destinationColumn, MotionVector *motionVector)
+	void Picture::compensate(const Picture *source, int sourceRow, int sourceColumn, Picture *destination, int destinationRow, int destinationColumn, MotionVector *motionVector)
 	{
-		int x = (sourceColumn << 4) + motionVector->rightLuma();
-		int y = (sourceRow << 4) + motionVector->downLuma();
+		QPoint sourceBlock(sourceColumn, sourceRow);
 
-		int dst0 = destination->m_lumaRowSize * (destinationRow << 4) + (destinationColumn << 4);
+		QPoint lumaSourcePosition = (sourceBlock * 16) + QPoint(motionVector->rightLuma(), motionVector->downLuma());
+		QPoint lumaDestinationPosition(destinationColumn << 4, destinationRow << 4);
 
-		if (!motionVector->rightHalfLuma() && !motionVector->downHalfLuma()) 
+		destination->copyLumaMacroblock(source, lumaSourcePosition, motionVector->rightHalfLuma(), motionVector->downHalfLuma(), lumaDestinationPosition);
+		
+		QPoint chromaSourcePosition = (sourceBlock * 8) + QPoint(motionVector->rightChroma(), motionVector->downChroma());
+		QPoint chromaDestinationPosition = QPoint(destinationColumn, destinationRow) * 8;
+
+		destination->copyChromaMacroblock(source, chromaSourcePosition, motionVector->rightHalfChroma(), motionVector->downHalfChroma(), chromaDestinationPosition);
+	}
+
+	/// Copy a macroblock from the source picture to this picture
+	///
+	/// This function copies the luma and chroma components of the block.
+	///
+	/// \param source the source picture
+	/// \param macroblockRow the row of the macroblock 
+	/// \param macroblockColumn the column of the macroblock
+	void Picture::copyMacroblock(const Picture *source, int macroblockRow, int macroblockColumn)
+	{
+		// First copy the luma block
+		int yOffset = macroblockRow << 4;
+		int xOffset = macroblockColumn << 4;
+
+		fullPelCopyMacroblock(source, QPoint(xOffset, yOffset));
+	}
+
+	void Picture::fullPelCopyMacroblock(const Picture *source, const QPoint &offset)
+	{
+		for(int y=0; y<16; y++)
 		{
-			int src0 = source->m_lumaRowSize * y + x;
-
-			for (int i = 0; i < 16; ++i) 
-			{
-				copyShorts(source->m_luma, src0, destination->m_luma, dst0, 16);
-
-				src0 += source->m_lumaRowSize;
-				dst0 += destination->m_lumaRowSize;
-			}
-		}
-		else if (!motionVector->rightHalfLuma() && motionVector->downHalfLuma()) 
-		{
-			int src0 = source->m_lumaRowSize * y + x;
-			int src1 = source->m_lumaRowSize * (y + 1) + x;
-
-			for (int i = 0; i < 16; ++i) 
-			{
-				for (int j = 0; j < 16; ++j)
-					destination->m_luma[dst0 + j] = (short)((source->m_luma[src0 + j] + source->m_luma[src1 + j]) >> 1);
-
-				src0 += source->m_lumaRowSize;
-				src1 += source->m_lumaRowSize;
-				dst0 += destination->m_lumaRowSize;
-			}
-		}
-		else if (motionVector->rightHalfLuma() && !motionVector->downHalfLuma()) 
-		{
-			int src0 = source->m_lumaRowSize * y + x;
-			int src1 = source->m_lumaRowSize * y + x + 1;
-
-			for (int i = 0; i < 16; ++i) 
-			{
-				for (int j = 0; j < 16; ++j)
-					destination->m_luma[dst0 + j] = (short)((source->m_luma[src0 + j] + source->m_luma[src1 + j]) >> 1);
-
-				src0 += source->m_lumaRowSize;
-				src1 += source->m_lumaRowSize;
-				dst0 += destination->m_lumaRowSize;
-			}
-		}
-		else if (motionVector->rightHalfLuma() && motionVector->downHalfLuma()) 
-		{
-			int src0 = source->m_lumaRowSize * y + x;
-			int src1 = source->m_lumaRowSize * (y + 1) + x;
-			int src2 = source->m_lumaRowSize * y + x + 1;
-			int src3 = source->m_lumaRowSize * (y + 1) + x + 1;
-
-			for (int i = 0; i < 16; ++i) 
-			{
-				for (int j = 0; j < 16; ++j)
-					destination->m_luma[dst0 + j] = (short)((source->m_luma[src0 + j] + source->m_luma[src1 + j] + source->m_luma[src2 + j] + source->m_luma[src3 + j]) >> 2);
-
-				src0 += source->m_lumaRowSize;
-				src1 += source->m_lumaRowSize;
-				src2 += source->m_lumaRowSize;
-				src3 += source->m_lumaRowSize;
-				dst0 += destination->m_lumaRowSize;
-			}
+			const short *in = source->lumaScanline(offset.y() + y) + offset.x();
+			short *out = lumaScanline(offset.y() + y) + offset.x();
+			for(int x=0; x<16; x++)
+				*out++ = *in++;
 		}
 
-		x = (sourceColumn << 3) + motionVector->rightChroma();
-		y = (sourceRow << 3) + motionVector->downChroma();
+		// Copy the chroma blocks
+		QPoint chromaOffset = offset / 2;
 
-		dst0 = destination->m_chromaRowSize * (destinationRow << 3) + (destinationColumn << 3);
-
-		if (!motionVector->rightHalfChroma() && !motionVector->downHalfChroma()) 
+		for(int y=0; y<8; y++)
 		{
-			int src0 = source->m_chromaRowSize * y + x;
-
-			for (int i = 0; i < 8; ++i)	
+			const short *inRed = source->chromaRedScanline(chromaOffset.y() + y) + chromaOffset.x();
+			const short *inBlue = source->chromaBlueScanline(chromaOffset.y() + y) + chromaOffset.x();
+			short *outRed = chromaRedScanline(chromaOffset.y() + y) + chromaOffset.x();
+			short *outBlue = chromaBlueScanline(chromaOffset.y() + y) + chromaOffset.x();
+			for(int x=0; x<8; x++)
 			{
-				copyShorts(source->m_chromaBlue, src0, destination->m_chromaBlue, dst0, 8);
-				copyShorts(source->m_chromaRed, src0, destination->m_chromaRed, dst0, 8);
-
-				src0 += source->m_chromaRowSize;
-				dst0 += destination->m_chromaRowSize;
-			}
-		}
-		else if (!motionVector->rightHalfChroma() && motionVector->downHalfChroma()) {
-			int src0 = source->m_chromaRowSize * y + x;
-			int src1 = source->m_chromaRowSize * (y + 1) + x;
-
-			for (int i = 0; i < 8; ++i)	
-			{
-				for (int j = 0; j < 8; ++j) 
-				{
-					destination->m_chromaBlue[dst0 + j] = (short)((source->m_chromaBlue[src0 + j] + source->m_chromaBlue[src1 + j]) >> 1);
-					destination->m_chromaRed[dst0 + j] = (short)((source->m_chromaRed[src0 + j] + source->m_chromaRed[src1 + j]) >> 1);
-				}
-
-				src0 += source->m_chromaRowSize;
-				src1 += source->m_chromaRowSize;
-				dst0 += destination->m_chromaRowSize;
-			}
-		}
-		else if (motionVector->rightHalfChroma() && !motionVector->downHalfChroma()) 
-		{
-			int src0 = source->m_chromaRowSize * y + x;
-			int src1 = source->m_chromaRowSize * y + x + 1;
-
-			for (int i = 0; i < 8; ++i) 
-			{
-				for (int j = 0; j < 8; ++j)	
-				{
-					destination->m_chromaBlue[dst0 + j] = (short)((source->m_chromaBlue[src0 + j] + source->m_chromaBlue[src1 + j]) >> 1);
-					destination->m_chromaRed[dst0 + j] = (short)((source->m_chromaRed[src0 + j] + source->m_chromaRed[src1 + j]) >> 1);
-				}
-
-				src0 += source->m_chromaRowSize;
-				src1 += source->m_chromaRowSize;
-				dst0 += destination->m_chromaRowSize;
-			}
-		}
-		else if (motionVector->rightHalfChroma() && motionVector->downHalfChroma()) 
-		{
-			int src0 = source->m_chromaRowSize * y + x;
-			int src1 = source->m_chromaRowSize * (y + 1) + x;
-			int src2 = source->m_chromaRowSize * y + x + 1;
-			int src3 = source->m_chromaRowSize * (y + 1) + x + 1;
-
-			for (int i = 0; i < 8; ++i) 
-			{
-				for (int j = 0; j < 8; ++j)	
-				{
-					destination->m_chromaBlue[dst0 + j] = (short)((source->m_chromaBlue[src0 + j] + source->m_chromaBlue[src1 + j] + source->m_chromaBlue[src2 + j] + source->m_chromaBlue[src3 + j]) >> 2);
-					destination->m_chromaRed[dst0 + j] = (short)((source->m_chromaRed[src0 + j] + source->m_chromaRed[src1 + j] + source->m_chromaRed[src2 + j] + source->m_chromaRed[src3 + j]) >> 2);
-				}
-
-				src0 += source->m_chromaRowSize;
-				src1 += source->m_chromaRowSize;
-				src2 += source->m_chromaRowSize;
-				src3 += source->m_chromaRowSize;
-				dst0 += destination->m_chromaRowSize;
+				*outRed++ = *inRed++;
+				*outBlue++ = *inBlue++;
 			}
 		}
 	}
 
-	/// Perform a block copy on the specified macroblock
-	/// This is equivalent to a compensation with motion
-	/// vector components equal zero.
-	void Picture::copy(Picture *source, int macroblockRow, int macroblockColumn)
-	{
-		int offset = m_lumaRowSize * (macroblockRow << 4) + (macroblockColumn << 4);
-
-		for (int i = 0; i < 16; ++i) 
+	void Picture::fullPelCopyLumaMacroblock(const Picture *source, const QPoint &from, const QPoint &to)
+	{		
+		for(int y=0; y<16; y++)
 		{
-			copyShorts(source->m_luma, offset, m_luma, offset, 16);
-
-			offset += m_lumaRowSize;
+			const short *in = source->lumaScanline(from.y() + y) + from.x();
+			short *out = lumaScanline(to.y() + y) + to.x();
+			for(int x=0; x<16; x++)
+				*out++ = *in++;
 		}
+	}
 
-		offset = m_chromaRowSize * (macroblockRow << 3) + (macroblockColumn << 3);
-
-		for (int i = 0; i < 8; ++i) 
+	void Picture::copyLumaMacroblock(const Picture *source, const QPoint &from, bool halfRight, bool halfDown, const QPoint &to)
+	{
+		m_motionVectors.append(new PictureMv(from, to, halfRight, halfDown));
+		if(!(halfRight || halfDown))
 		{
-			copyShorts(source->m_chromaBlue, offset, m_chromaBlue, offset, 8);
-			copyShorts(source->m_chromaRed, offset, m_chromaRed, offset, 8);
+			// The motion vector is full pel, just call the full pel copy function
+			fullPelCopyLumaMacroblock(source, from, to);
+		}
+		else if(halfRight && halfDown)
+		{
+			// For each destination pixel, take the average of the four pixels surrounding the source pixel
+			const short *inLine2 = source->lumaScanline(from.y()) + from.x();
+			for(int y=1; y<=16; y++)
+			{
+				const short *inLine1 = inLine2;
+				inLine2 = source->lumaScanline(from.y() + y) + from.x();
 
-			offset += m_chromaRowSize;
+				short *out = lumaScanline(to.y() + y - 1) + to.x();
+				for(int x=0; x<16; x++)
+				{
+					int v = *inLine1++ + *inLine2++;
+					v += *inLine1 + *inLine2;
+					
+					*out++ = (short) (v >> 2);
+				}
+			}
+		}
+		else if(halfDown)
+		{
+			// For each destination pixel, take the average of the pixel above and below the source pixel
+			const short *inLine2 = source->lumaScanline(from.y()) + from.x();
+			for(int y=1; y<=16; y++)
+			{
+				const short *inLine1 = inLine2;
+				inLine2 = source->lumaScanline(from.y() + y) + from.x();
+
+				short *out = lumaScanline(to.y() + y - 1) + to.x();
+				for(int x=0; x<16; x++)
+				{
+					int v = (int) *inLine1++ + (int) *inLine2++;
+					*out++ = (short) (v >> 1);
+				}
+			}
+		}
+		else
+		{
+			// For each destination pixel, take the average of the pixel to the right and to the left of the source pixel
+			for(int y=0; y<16; y++)
+			{
+				const short *in = source->lumaScanline(from.y() + y) + from.x();
+
+				short *out = lumaScanline(to.y() + y) + to.x();
+				for(int x=0; x<16; x++)
+				{
+					int v = *in++;
+					v += *in;
+					
+					*out++ = (short) (v >> 1);
+				}
+			}
+		}
+	}
+
+	void Picture::copyChromaMacroblock(const Picture *source, const QPoint &from, bool halfRight, bool halfDown, const QPoint &to)
+	{
+		if(!(halfRight || halfDown))
+		{
+			// The motion vector is full pel, just call the full pel copy function
+			fullPelCopyChromaMacroblock(source, from, to);
+		}
+		else if(halfRight && halfDown)
+		{
+			// For each destination pixel, take the average of the four pixels surrounding the source pixel
+			const short *inLine2Red = source->chromaRedScanline(from.y()) + from.x();
+			const short *inLine2Blue = source->chromaBlueScanline(from.y()) + from.x();
+			for(int y=1; y<=8; y++)
+			{
+				const short *inLine1Red = inLine2Red;
+				const short *inLine1Blue = inLine2Blue;
+				inLine2Red = source->chromaRedScanline(from.y() + y) + from.x();
+				inLine2Blue = source->chromaBlueScanline(from.y() + y) + from.x();
+
+				short *outRed = chromaRedScanline(to.y() + y - 1) + to.x();
+				short *outBlue = chromaBlueScanline(to.y() + y - 1) + to.x();
+				for(int x=0; x<8; x++)
+				{
+					int v = *inLine1Red++ + *inLine2Red++;
+					v += *inLine1Red + *inLine2Red;
+					*outRed++ = (short) (v >> 2);
+
+					v = *inLine1Blue++ + *inLine2Blue++;
+					v += *inLine1Blue + *inLine2Blue;
+					*outBlue++ = (short) (v >> 2);
+				}
+			}
+		}
+		else if(halfDown)
+		{
+			// For each destination pixel, take the average of the pixel above and below the source pixel
+			const short *inLine2Red = source->chromaRedScanline(from.y()) + from.x();
+			const short *inLine2Blue = source->chromaBlueScanline(from.y()) + from.x();
+			for(int y=1; y<=8; y++)
+			{
+				const short *inLine1Red = inLine2Red;
+				const short *inLine1Blue = inLine2Blue;
+				inLine2Red = source->chromaRedScanline(from.y() + y) + from.x();
+				inLine2Blue = source->chromaBlueScanline(from.y() + y) + from.x();
+
+				short *outRed = chromaRedScanline(to.y() + y - 1) + to.x();
+				short *outBlue = chromaBlueScanline(to.y() + y - 1) + to.x();
+				for(int x=0; x<8; x++)
+				{
+					int v = *inLine1Red++ + *inLine2Red++;
+					*outRed++ = (short) (v >> 1);
+
+					v = *inLine1Blue++ + *inLine2Blue++;
+					*outBlue++ = (short) (v >> 1);
+				}
+			}
+		}
+		else
+		{
+			// For each destination pixel, take the average of the pixel to the right and to the left of the source pixel
+			for(int y=0; y<8; y++)
+			{
+				const short *inRed = source->chromaRedScanline(from.y() + y) + from.x();
+				const short *inBlue = source->chromaBlueScanline(from.y() + y) + from.x();
+
+				short *outRed = chromaRedScanline(to.y() + y) + to.x();
+				short *outBlue = chromaBlueScanline(to.y() + y) + to.x();
+				for(int x=0; x<8; x++)
+				{
+					int v = *inRed++;
+					v += *inRed;
+					*outRed++ = (short) (v >> 1);
+
+					v = *inBlue++;
+					v += *inBlue;
+					*outBlue++ = (short) (v >> 1);
+				}
+			}
+		}
+	}
+
+	void Picture::fullPelCopyChromaMacroblock(const Picture *source, const QPoint &from, const QPoint &to)
+	{
+		for(int y=0; y<8; y++)
+		{
+			const short *inRed = source->chromaRedScanline(from.y() + y) + from.x();
+			const short *inBlue = source->chromaBlueScanline(from.y() + y) + from.x();
+			short *outRed = chromaRedScanline(to.y() + y) + to.x();
+			short *outBlue = chromaBlueScanline(to.y() + y) + to.x();
+			for(int x=0; x<8; x++)
+			{
+				*outRed++ = *inRed++;
+				*outBlue++ = *inBlue++;
+			}
 		}
 	}
 
@@ -262,32 +326,33 @@ namespace Mpeg1
 	// Bit 1 determines the row position within the macroblock
 	void Picture::setLumaBlock(int *dct, int macroblockRow, int macroblockColumn, int blockNumber) 
 	{
-		int rowOffset = m_lumaRowSize * ((macroblockRow << 4) + ((blockNumber & 0x2) << 2)) + (macroblockColumn << 4) + ((blockNumber & 0x1) << 3);
+		macroblockRow <<= 1;
+		macroblockRow += blockNumber >> 1;
+		int offsetY = macroblockRow << 3;
 
-		for (int i = 0; i < 8; ++i)	
+		macroblockColumn <<= 1;
+		macroblockColumn += blockNumber & 1;
+		int offsetX = macroblockColumn << 3;
+
+		for(int y=0; y<8; y++)
 		{
-			for (int j = 0; j < 8; ++j)
-				m_luma[rowOffset + j] = (short)dct[i * 8 + j];
-
-			rowOffset += m_lumaRowSize;
+			short *out = lumaScanline(offsetY + y) + offsetX;
+			for(int x=0; x<8; x++, dct++)
+				*out++ = (short)(*dct);
 		}
 	}
 
 	void Picture::setChromaBlock(int *dct, int macroblockRow, int macroblockColumn, int blockNumber) 
 	{
-		int rowOffset = m_chromaRowSize * (macroblockRow << 3) + (macroblockColumn << 3);
+		int offsetY = macroblockRow << 3;
+		int offsetX = macroblockColumn << 3;
 
-		for (int i = 0; i < 8; ++i)	
+		for(int y=0; y<8; y++)
 		{
-			for (int j = 0; j < 8; ++j)
-			{
-				if (blockNumber == 4)
-					m_chromaBlue[rowOffset + j] = (short)dct[i * 8 + j];
-				else
-					m_chromaRed[rowOffset + j] = (short)dct[i * 8 + j];
-			}
-
-			rowOffset += m_chromaRowSize;
+			short *out = (blockNumber == 4) ? chromaBlueScanline(offsetY + y) : chromaRedScanline(offsetY + y);
+			out += offsetX;
+			for(int x=0; x<8; x++, dct++)
+				*out++ = (short)(*dct);
 		}
 	}
 
@@ -341,4 +406,35 @@ namespace Mpeg1
 	{
 		m_type = type;
 	}
+
+  const short *Picture::lumaScanline(int scanLine) const
+  {
+    return m_luma + (scanLine * m_lumaRowSize);
+  }
+
+  short *Picture::lumaScanline(int scanLine)
+  {
+    return m_luma + (scanLine * m_lumaRowSize);
+  }
+
+  const short *Picture::chromaBlueScanline(int scanLine) const
+  {
+    return m_chromaBlue + (scanLine * m_chromaRowSize);
+  }
+
+  short *Picture::chromaBlueScanline(int scanLine)
+  {
+    return m_chromaBlue + (scanLine * m_chromaRowSize);
+  }
+
+  const short *Picture::chromaRedScanline(int scanLine) const
+  {
+    return m_chromaRed + (scanLine * m_chromaRowSize);
+  }
+
+  short *Picture::chromaRedScanline(int scanLine)
+  {
+    return m_chromaRed + (scanLine * m_chromaRowSize);
+  }
 }
+

@@ -66,7 +66,8 @@ namespace Mpeg1
 
 	void MotionVector::resetPrevious()
 	{
-		m_rightPrevious = m_downPrevious;
+		m_rightPrevious = 0;
+		m_downPrevious = 0;
 	}
 
 	// Reconstruct the motion vector horizontal and vertical components
@@ -88,15 +89,19 @@ namespace Mpeg1
 		int rightLittle = motionHorizontalCode * m_vector;
 		int rightBig = 0;
 
-		if (rightLittle == 0) {
+		if (rightLittle == 0) 
+		{
 			rightBig = 0;
 		}
-		else {
-			if (rightLittle > 0) {
+		else 
+		{
+			if (rightLittle > 0) 
+			{
 				rightLittle = rightLittle - complementHorizontalR;
 				rightBig = rightLittle - (m_vector << 5);
 			}
-			else {
+			else 
+			{
 				rightLittle = rightLittle + complementHorizontalR;
 				rightBig = rightLittle + (m_vector << 5);
 			}
@@ -106,15 +111,19 @@ namespace Mpeg1
 		int downLittle = motionVerticalCode * m_vector;
 		int downBig = 0;
 
-		if (downLittle == 0) {
+		if (downLittle == 0) 
+		{
 			downBig = 0;
 		}
-		else {
-			if (downLittle > 0) {
+		else 
+		{
+			if (downLittle > 0) 
+			{
 				downLittle = downLittle - complementVerticalR;
 				downBig = downLittle - (m_vector << 5);
 			}
-			else {
+			else 
+			{
 				downLittle = downLittle + complementVerticalR;
 				downBig = downLittle + (m_vector << 5);
 			}
@@ -146,7 +155,7 @@ namespace Mpeg1
 
 		if (m_fullPelVector)
 			reconDown <<= 1;
-
+		
 		// LUMINANCE
 		m_rightLuma       = reconRight >> 1;
 		m_downLuma        = reconDown >> 1;
@@ -163,3 +172,4 @@ namespace Mpeg1
 		m_downHalfChroma    = (reconDown - (m_downChroma << 1)) != 0;
 	}
 }
+
