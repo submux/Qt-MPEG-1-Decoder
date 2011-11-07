@@ -92,7 +92,10 @@ namespace Mpeg1
 		class InputBitstream *m_input;
 		class VideoRenderer *m_renderer;
 
-		class Picture *m_pictureStore[3];
+		class VideoPicture *m_videoPictureStore[3];
+		class VideoPicture *m_currentPicture;
+		class VideoPicture *m_previousPicture;
+		class VideoPicture *m_futurePicture;
 		int m_current;
 		int m_previous;
 		int m_future;
@@ -125,6 +128,7 @@ namespace Mpeg1
 		int m_forwardF;
 		int m_forwardRSize;
 
+		// Only present in B pictures
 		int m_backwardF;
 		int m_backwardRSize;
 

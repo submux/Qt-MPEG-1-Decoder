@@ -2,8 +2,7 @@
 #include "idct.h"
 #include "inputbitstream.h"
 #include "motionvector.h"
-#include "picturequeue.h"
-#include "picture.h"
+#include "videopicture.h"
 #include "videorenderer.h"
 #include "vlc.h"
 
@@ -68,10 +67,15 @@ namespace Mpeg1
 		m_renderer(renderer),
 		m_current(0),
 		m_previous(-1),
-		m_future(-1)
+		m_future(-1),
+		m_currentPicture(0),
+		m_previousPicture(0),
+		m_futurePicture(0)
 	{
 		for(int i=0; i<3; i++)
-			m_pictureStore[i] = 0;
+		{
+			m_videoPictureStore[i] = 0;
+		}
 
 		m_forward = new MotionVector;
 		m_backward = new MotionVector;
@@ -80,7 +84,9 @@ namespace Mpeg1
 	Decoder::~Decoder()
 	{
 		for(int i=0; i<3; i++)
-			delete m_pictureStore[i];
+		{
+			delete m_videoPictureStore[i];
+		}
 
 		delete m_forward;
 		delete m_backward;
@@ -115,9 +121,16 @@ namespace Mpeg1
 
 			m_renderer->setSize(m_width, m_height);
 
-			m_pictureStore[0] = new Picture(m_macroblockWidth, m_macroblockHeight);
-			m_pictureStore[1] = new Picture(m_macroblockWidth, m_macroblockHeight);
-			m_pictureStore[2] = new Picture(m_macroblockWidth, m_macroblockHeight);
+			QSize blocks(m_macroblockWidth, m_macroblockHeight);
+			QSize lumaBlockSize(16, 16);
+			QSize chromaBlockSize(8, 8);
+			for(int i=0; i<3; i++)
+			{
+				m_videoPictureStore[i] = new VideoPicture;
+				if(!m_videoPictureStore[i]->allocate(blocks, lumaBlockSize, chromaBlockSize))
+					return;
+			}
+			m_currentPicture = m_videoPictureStore[m_current];
 
 			do 
 			{
@@ -285,12 +298,11 @@ namespace Mpeg1
 			parsePicture();
 
     		// Send picture to player
-			m_renderer->pushPicture(m_pictureStore[m_current], m_pictureCodingType);
-			m_pictureStore[m_current]->clearMotionVectors();
+			m_renderer->pushPicture(m_currentPicture, m_pictureCodingType);
 			
 			// Store current picture in Previous or Future Picture Store
     		// Refer to section 2-D.2.4
-			if (m_pictureCodingType == Picture::IType || m_pictureCodingType == Picture::PType) 
+			if (m_pictureCodingType == VideoPicture::PictureCodingI || m_pictureCodingType == VideoPicture::PictureCodingP) 
 			{
            		if (m_previous == -1)
            		{
@@ -307,6 +319,11 @@ namespace Mpeg1
 
            		m_current = (m_current + 1) % 3;
 			}
+			m_currentPicture = m_videoPictureStore[m_current];
+			if(m_previous >= 0) 
+				m_previousPicture = m_videoPictureStore[m_previous];
+			if(m_future >= 0) 
+				m_futurePicture = m_videoPictureStore[m_future];
 
 		} while (m_input->nextBits(32) == PictureStartCode);
 	}
@@ -319,18 +336,18 @@ namespace Mpeg1
 		m_input->getBits(16); // vbvDelay
 
 		// This data is to be used later by the player
-		m_pictureStore[m_current]->setTime(temporalReference);
-		m_pictureStore[m_current]->setType(m_pictureCodingType);
+		m_currentPicture->setTemporalReference(temporalReference);
+		m_currentPicture->setPictureType((VideoPicture::PictureCoding) m_pictureCodingType);
 
 		// "Copy" picture from Future Picture Store to Previous Picture Store
 		// Refer to section 2-D.2.4
-		if (m_pictureCodingType == Picture::IType || m_pictureCodingType == Picture::PType)
+		if (m_pictureCodingType == VideoPicture::PictureCodingI || m_pictureCodingType == VideoPicture::PictureCodingP)
 		{
 			if (m_future != -1)
         		m_previous = m_future;
 		}
 
-		if (m_pictureCodingType == Picture::PType || m_pictureCodingType == Picture::BType) 
+		if (m_pictureCodingType == VideoPicture::PictureCodingP || m_pictureCodingType == VideoPicture::PictureCodingB) 
 		{
 			bool fullPelForwardVector = m_input->getBits(1) == 1;
 			int forwardFCode = m_input->getBits(3);  // Can't be 0
@@ -340,7 +357,7 @@ namespace Mpeg1
 			m_forward->initialize(m_forwardF, fullPelForwardVector);
 		}
 
-		if (m_pictureCodingType == Picture::BType) 
+		if (m_pictureCodingType == VideoPicture::PictureCodingB) 
 		{
 			bool fullPelBackwardVector = m_input->getBits(1) == 1;
 			int backwardFCode = m_input->getBits(3); // Can't be 0
@@ -432,8 +449,6 @@ namespace Mpeg1
 		nextStartCode();
 	}
 
- 
-
 	/// A macroblock has 4 luminance blocks and 2 chrominance blocks.
 	/// The order of blocks in a macroblock is top-left, top-right, 
 	/// bottom-left, bottom-right block for Y, followed by Cb and Cr.
@@ -462,7 +477,7 @@ namespace Mpeg1
 		{
 			m_dctDcYPast = m_dctDcCrPast = m_dctDcCbPast = 1024;
 
-			if (m_pictureCodingType == Picture::PType) 
+			if (m_pictureCodingType == VideoPicture::PictureCodingP) 
 			{
 				// In P-pictures, the skipped macroblock is defined to be 
 				// a macroblock with a reconstructed motion vector equal 
@@ -472,13 +487,11 @@ namespace Mpeg1
 
 				for (int i = 0; i < macroblockAddressIncrement; ++i) 
 				{
-					int macroblockRow = (m_macroblockAddress + 1 + i) / m_macroblockWidth;
-					int macroblockColumn = (m_macroblockAddress + 1 + i) % m_macroblockWidth;
-
-					m_pictureStore[m_current]->copyMacroblock(m_pictureStore[m_previous], macroblockRow, macroblockColumn);
+					int macroblockAddress = m_macroblockAddress + 1 + i;
+					m_currentPicture->copyMacroblock(*m_previousPicture, macroblockAddress);
 				}
 			}
-			else if (m_pictureCodingType == Picture::BType) 
+			else if (m_pictureCodingType == VideoPicture::PictureCodingB) 
 			{
 				// In B-pictures, the skipped macroblock is defined to have 
 				// the same macroblock_type (forward, backward, or both motion 
@@ -486,15 +499,14 @@ namespace Mpeg1
 				// vectors equal to zero, and no DCT coefficients.
 				for (int i = 0; i < macroblockAddressIncrement; ++i) 
 				{
-					int macroblockRow = (m_macroblockAddress + 1 + i) / m_macroblockWidth;
-					int macroblockColumn = (m_macroblockAddress + 1 + i) % m_macroblockWidth;
+					quint32 macroblockAddress = m_macroblockAddress + 1 + i;
 
     				if (!m_macroblockType.macroblockMotionForward() && m_macroblockType.macroblockMotionBackward())
-						m_pictureStore[m_current]->compensate(m_pictureStore[m_future], macroblockRow, macroblockColumn, m_backward);
+						m_currentPicture->compensate(*m_futurePicture, macroblockAddress, *m_backward);
     				else if (m_macroblockType.macroblockMotionForward() && !m_macroblockType.macroblockMotionBackward())
-						m_pictureStore[m_current]->compensate(m_pictureStore[m_previous], macroblockRow, macroblockColumn, m_forward);
+						m_currentPicture->compensate(*m_previousPicture, macroblockAddress, *m_forward);
     				else if (m_macroblockType.macroblockMotionForward() && m_macroblockType.macroblockMotionBackward()) 
-    					m_pictureStore[m_current]->interpolate(m_pictureStore[m_previous], m_pictureStore[m_future], macroblockRow, macroblockColumn, m_forward, m_backward);
+						m_currentPicture->interpolate(*m_previousPicture, *m_forward, *m_futurePicture, *m_backward, macroblockAddress);
 				}
 			}
 		}
@@ -555,36 +567,27 @@ namespace Mpeg1
 			m_backward->calculate(motionHorizontalBackwardCode, m_motionHorizontalBackwardR, motionVerticalBackwardCode, m_motionVerticalBackwardR);
 		}
 
-		if (m_pictureCodingType == Picture::PType) // See 2.4.4.2
+		if (m_pictureCodingType == VideoPicture::PictureCodingP) // See 2.4.4.2
 		{	
 			if (m_macroblockType.macroblockMotionForward()) 
-			{
-				m_pictureStore[m_current]->compensate(m_pictureStore[m_previous], m_macroblockRow, m_macroblockColumn, m_forward);
-			}
-			else {
-				m_pictureStore[m_current]->copyMacroblock(m_pictureStore[m_previous], m_macroblockRow, m_macroblockColumn);
-			}
+				m_currentPicture->compensate(*m_previousPicture, m_macroblockAddress, *m_forward);
+			else
+				m_currentPicture->copyMacroblock(*m_previousPicture, m_macroblockAddress);
 		}
-		else if (m_pictureCodingType == Picture::BType) // See 2.4.4.3
+		else if (m_pictureCodingType == VideoPicture::PictureCodingB) // See 2.4.4.3
 		{	
 			if (m_macroblockType.macroblockMotionForward() && !m_macroblockType.macroblockMotionBackward()) 
-			{
-				m_pictureStore[m_current]->compensate(m_pictureStore[m_previous], m_macroblockRow, m_macroblockColumn, m_forward);
-			}
+				m_currentPicture->compensate(*m_previousPicture, m_macroblockAddress, *m_forward);
 			else if(!m_macroblockType.macroblockMotionForward() && m_macroblockType.macroblockMotionBackward()) 
-			{
-				m_pictureStore[m_current]->compensate(m_pictureStore[m_future], m_macroblockRow, m_macroblockColumn, m_backward);
-			}
+				m_currentPicture->compensate(*m_futurePicture, m_macroblockAddress, *m_backward);
 			else if (m_macroblockType.macroblockMotionForward() && m_macroblockType.macroblockMotionBackward()) 
-			{
-				m_pictureStore[m_current]->interpolate(m_pictureStore[m_previous], m_pictureStore[m_future], m_macroblockRow, m_macroblockColumn, m_forward, m_backward);
-			}
+				m_currentPicture->interpolate(*m_previousPicture, *m_forward, *m_futurePicture, *m_backward, m_macroblockAddress);
 		}
 
-		if (m_pictureCodingType == Picture::PType && !m_macroblockType.macroblockMotionForward())
+		if (m_pictureCodingType == VideoPicture::PictureCodingP && !m_macroblockType.macroblockMotionForward())
 			m_forward->resetPrevious();
 
-		if (m_pictureCodingType == Picture::BType && m_macroblockType.macroblockIntra()) 
+		if (m_pictureCodingType == VideoPicture::PictureCodingB && m_macroblockType.macroblockIntra()) 
 		{
 			m_forward->resetPrevious();
 			m_backward->resetPrevious();
@@ -606,21 +609,25 @@ namespace Mpeg1
 				if (m_macroblockType.macroblockIntra()) 
 				{
 					if (i < 4) 
-						m_pictureStore[m_current]->setLumaBlock(m_dctRecon, m_macroblockRow, m_macroblockColumn, i);
-					else	   
-						m_pictureStore[m_current]->setChromaBlock(m_dctRecon, m_macroblockRow, m_macroblockColumn, i);
+						m_currentPicture->luma().setBlock8x8(m_dctRecon, m_macroblockAddress, i);
+					else if(i == 5)
+						m_currentPicture->chromaRed().setBlock8x8(m_dctRecon, m_macroblockAddress, 0);
+					else
+						m_currentPicture->chromaBlue().setBlock8x8(m_dctRecon, m_macroblockAddress, 0);					
 				}
 				else 
 				{
 					if (i < 4) 
-						m_pictureStore[m_current]->correctLumaBlock(m_dctRecon, m_macroblockRow, m_macroblockColumn, i);
-					else       
-						m_pictureStore[m_current]->correctChromaBlock(m_dctRecon, m_macroblockRow, m_macroblockColumn, i);
+						m_currentPicture->luma().correctBlock8x8(m_dctRecon, m_macroblockAddress, i);
+					else if(i == 5)
+						m_currentPicture->chromaRed().correctBlock8x8(m_dctRecon, m_macroblockAddress, 0);
+					else
+						m_currentPicture->chromaBlue().correctBlock8x8(m_dctRecon, m_macroblockAddress, 0);		
 				}
 			}
 		}
 
-		if (m_pictureCodingType == Picture::DType)
+		if (m_pictureCodingType == VideoPicture::PictureCodingD)
 			m_input->getBits(1);
 	}
 
@@ -677,7 +684,7 @@ namespace Mpeg1
 			m_dctZigzag[run] = runLevel.level();
 		}
 
-		if (m_pictureCodingType != Picture::DType) 
+		if (m_pictureCodingType != VideoPicture::PictureCodingD) 
 		{
 			while (m_input->nextBits(2) != 0x2) 
 			{

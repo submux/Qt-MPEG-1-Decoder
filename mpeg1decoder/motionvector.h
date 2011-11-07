@@ -2,9 +2,54 @@
 #define MPEG1_MOTIONVECTOR_H
 
 #include <QtCore/Qt>
+#include <QtCore/QPoint>
 
 namespace Mpeg1
 {
+	class MotionDescription
+	{
+	public:
+		MotionDescription() :
+		  m_halfHorizontal(false),
+		  m_halfVertical(false)
+		{
+		}
+
+		MotionDescription(const QPoint &fullPel, bool halfHorizontal, bool halfVertical) :
+		  m_fullPel(fullPel),
+		  m_halfHorizontal(halfHorizontal),
+		  m_halfVertical(halfVertical)
+		{
+		}
+
+		MotionDescription(const QPoint &motion)
+		{
+			m_fullPel = QPoint(motion.x() >> 1, motion.y() >> 1);
+			m_halfHorizontal = (motion.x() & 1) == 1;
+			m_halfVertical = (motion.y() & 1) == 1;
+		}
+
+		const QPoint &fullPel() const
+		{
+			return m_fullPel;
+		}
+
+		bool halfHorizontal() const
+		{
+			return m_halfHorizontal;
+		}
+
+		bool halfVertical() const
+		{
+			return m_halfVertical;
+		}
+
+	private:
+		QPoint m_fullPel;
+		bool m_halfHorizontal;
+		bool m_halfVertical;
+	};
+
 	class MotionVector
 	{
 	public:
@@ -32,6 +77,14 @@ namespace Mpeg1
 
 		int downHalfChroma() const;
 
+		QPoint fullPelLuma() const;
+
+		QPoint fullPelChroma() const;
+
+		const MotionDescription &luma() const;
+
+		const MotionDescription &chroma() const;
+
 	private:
 		// Reconstructed motion vector for the previous predictive-coded 
 		// macroblock.
@@ -40,15 +93,9 @@ namespace Mpeg1
 	
 		// Reconstructed horizontal and vertical components of the 
 		// motion vector for the current macroblock.
-		int m_rightLuma;
-		int m_downLuma;
-		bool m_rightHalfLuma;
-		bool m_downHalfLuma;	 
+		MotionDescription m_luma;
 
-		int m_rightChroma;
-		int m_downChroma;
-		bool m_rightHalfChroma;
-		bool m_downHalfChroma;	 
+		MotionDescription m_chroma;
 
 		int m_vector;
 		bool m_fullPelVector;

@@ -10,7 +10,7 @@ namespace Mpeg1
   class Decoder;
   class InputBitstream;
   class PictureQueue;
-  class Picture;
+  class VideoPicture;
 };
 
 class MpegViewer : public QWidget
@@ -28,7 +28,7 @@ protected:
   friend class MpegVideoRenderer;
   void setPictureSize(const QSize &pictureSize);
 
-  void pushPicture(const Mpeg1::Picture *picture, int type);
+  void pushPicture(const Mpeg1::VideoPicture *picture, int type);
 
   void paintEvent(QPaintEvent *);
 

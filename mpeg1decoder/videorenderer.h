@@ -8,7 +8,7 @@ namespace Mpeg1
 	public:
 		virtual void setSize(int width, int height) = 0;
 
-		virtual void pushPicture(const Picture *picture, int type) = 0;
+		virtual void pushPicture(const VideoPicture *picture, int type) = 0;
 
 		/// Informs the renderer of the encoded pixel aspect ratio.
 		virtual void setPixelAspectRatio(int /*aspectRatio*/) {}	// TODO replace with enum

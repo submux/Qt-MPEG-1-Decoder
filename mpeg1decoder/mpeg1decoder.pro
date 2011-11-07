@@ -5,9 +5,10 @@ HEADERS += \
     idct.h \
     inputbitstream.h \
     motionvector.h \
-    picture.h \
-    picturequeue.h \
+    plane.h \
+    planeblock.h \
     utility.h \
+    videopicture.h \
     videorenderer.h \
     vlc.h \
     test/qmpegdecoderview.h \
@@ -19,7 +20,9 @@ SOURCES += \
     idct.cpp \
     inputbitstream.cpp \
     motionvector.cpp \
-    picture.cpp \
+    plane.cpp \
+    planeblock.cpp \
+    videopicture.cpp \
     vlc.cpp \
     test/main.cpp \
     test/qmpegdecoderview.cpp \

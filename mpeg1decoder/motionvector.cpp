@@ -5,14 +5,6 @@ namespace Mpeg1
 	MotionVector::MotionVector() :
 		m_rightPrevious(0),
 		m_downPrevious(0),
-		m_rightLuma(0),
-		m_downLuma(0),
-		m_rightHalfLuma(false),
-		m_downHalfLuma(false),	 
-		m_rightChroma(0),
-		m_downChroma(0),
-		m_rightHalfChroma(false),
-		m_downHalfChroma(false),
 		m_vector(0),
 		m_fullPelVector(false)
 	{
@@ -20,42 +12,42 @@ namespace Mpeg1
 
 	int MotionVector::rightLuma() const
 	{
-		return m_rightLuma;
+		return m_luma.fullPel().x();
 	}
 
 	int MotionVector::downLuma() const
 	{
-		return m_downLuma;
+		return m_luma.fullPel().y();
 	}
 
 	bool MotionVector::rightHalfLuma() const
 	{
-		return m_rightHalfLuma;
+		return m_luma.halfHorizontal();
 	}
 
 	bool MotionVector::downHalfLuma() const
 	{
-		return m_downHalfLuma;
+		return m_luma.halfVertical();
 	}
 
 	int MotionVector::rightChroma() const
 	{
-		return m_rightChroma;
+		return m_chroma.fullPel().x();
 	}
 
 	int MotionVector::downChroma() const
 	{
-		return m_downChroma;
+		return m_chroma.fullPel().y();
 	}
 
 	int MotionVector::rightHalfChroma() const
 	{
-		return m_rightHalfChroma;
+		return m_chroma.halfHorizontal();
 	}
 
 	int MotionVector::downHalfChroma() const
 	{
-		return m_downHalfChroma;
+		return m_chroma.halfVertical();
 	}
 
 	void MotionVector::initialize(int vector, bool fullPelVector)
@@ -68,6 +60,26 @@ namespace Mpeg1
 	{
 		m_rightPrevious = 0;
 		m_downPrevious = 0;
+	}
+
+	QPoint MotionVector::fullPelLuma() const
+	{
+		return m_luma.fullPel();
+	}
+
+	QPoint MotionVector::fullPelChroma() const
+	{
+		return m_chroma.fullPel();
+	}
+
+	const MotionDescription &MotionVector::luma() const
+	{
+		return m_luma;
+	}
+
+	const MotionDescription &MotionVector::chroma() const
+	{
+		return m_chroma;
 	}
 
 	// Reconstruct the motion vector horizontal and vertical components
@@ -157,19 +169,13 @@ namespace Mpeg1
 			reconDown <<= 1;
 		
 		// LUMINANCE
-		m_rightLuma       = reconRight >> 1;
-		m_downLuma        = reconDown >> 1;
-		m_rightHalfLuma   = (reconRight - (m_rightLuma << 1)) != 0;
-		m_downHalfLuma    = (reconDown - (m_downLuma << 1)) != 0;
-
+		m_luma = MotionDescription(QPoint(reconRight, reconDown));
+		
 		reconRight >>= 1;
 		reconDown  >>= 1;
 
 		// CHROMINANCE
-		m_rightChroma       = reconRight >> 1;
-		m_downChroma        = reconDown >> 1;
-		m_rightHalfChroma   = (reconRight - (m_rightChroma << 1)) != 0;
-		m_downHalfChroma    = (reconDown - (m_downChroma << 1)) != 0;
+		m_chroma = MotionDescription(QPoint(reconRight, reconDown));
 	}
 }
 

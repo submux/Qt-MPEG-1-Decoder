@@ -1,8 +1,6 @@
 #include "vlc.h"
 #include "inputbitstream.h"
-#include "picture.h"
-
-#include <QtCore/QDebug>
+#include "videopicture.h"
 
 namespace Mpeg1
 {
@@ -82,7 +80,7 @@ namespace Mpeg1
 
 		switch (pictureType) 
 		{
-			case Picture::IType:
+			case VideoPicture::PictureCodingI:
 				index  = input->nextBits(2);
 				length = s_macroblockTypeI[index] & 0x0f;
 
@@ -95,7 +93,7 @@ namespace Mpeg1
 				input->getBits(length);
 				break;
 
-			case Picture::PType:
+			case VideoPicture::PictureCodingP:
 				index = input->nextBits(6);
 
 				// Handle special case: highest bit is 1
@@ -111,7 +109,7 @@ namespace Mpeg1
 				input->getBits(length);
 				break;
 
-			case Picture::BType:
+			case VideoPicture::PictureCodingB:
 				index = input->nextBits(6);
 
 				// Handle 2 special cases: highest bit 1
@@ -127,7 +125,7 @@ namespace Mpeg1
 				input->getBits(length);
 				break;
 
-			case Picture::DType:
+			case VideoPicture::PictureCodingD:
 				break;
 		}
 	}

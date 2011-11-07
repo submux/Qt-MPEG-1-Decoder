@@ -27,7 +27,7 @@ public:
     m_parent->setPictureSize(QSize(width, height));
   }
 
-  void pushPicture(const Mpeg1::Picture *picture, int type)
+  void pushPicture(const Mpeg1::VideoPicture *picture, int type)
   {
 	  m_parent->pushPicture(picture, type);
   }
@@ -66,7 +66,7 @@ void MpegViewer::setPictureSize(const QSize &pictureSize)
   qDebug() << m_pictureSize;
 }
 
-void MpegViewer::pushPicture(const Mpeg1::Picture *picture, int type)
+void MpegViewer::pushPicture(const Mpeg1::VideoPicture *picture, int type)
 {	
 	const char *types[] = { "", "I", "P", "B" };
 	QImage *newImage = new QImage;
@@ -86,6 +86,7 @@ void MpegViewer::pushPicture(const Mpeg1::Picture *picture, int type)
 	p.end();
 	m_imageList.append(newImage);
 }
+
 
 void MpegViewer::paintEvent(QPaintEvent *)
 {

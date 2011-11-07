@@ -7,7 +7,7 @@
 
 namespace Mpeg1
 {
-  class Picture;
+  class VideoPicture;
 }
 
 class MpegBitmap
@@ -21,7 +21,7 @@ private:
 public:
     MpegBitmap();
 
-    static void mpegToQImage(const QSize &sourceSize, const Mpeg1::Picture *source, class QImage &out);
+    static void mpegToQImage(const QSize &sourceSize, const Mpeg1::VideoPicture *source, class QImage &out);
 
 private:
     static QRgb colorConvert(int luma, int chromaRed1, int chromaBlue1, int chromaRed2, int chromaBlue2);
